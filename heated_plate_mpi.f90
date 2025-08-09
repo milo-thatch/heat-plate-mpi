@@ -33,17 +33,46 @@ program heated_plate_mpi
     ny_local = ny/dims(2)
     allocate(T(0:nx_local+1,0:ny_local+1),T_old(0:nx_local+1,0:ny_local+1)) ! allocate and include halos 
     ! initialize the temperature
-    T = dble(rank_2d)
-    T_old = dble(rank_2d)
+    ! T = dble(rank_2d) ! test
+    ! T_old = dble(rank_2d) ! test
+    T = 0.0d0
+    T_old = 0.0d0
+    dx = Lx/nx
+    dy = Ly/ny
+    dt = 0.0001
 
     ! SET BOUNDARY CONDITIONS
     call set_boundary_conditions(T, T_old, nx_local, ny_local, coords, dims, nx, ny)  
+    
+    ! SOLVE THE HEAT EQUATION 
+    ! second-order centred finite difference in x and y, euler explicit in time
+    ! call update_halos
+    iteration = 0
+    error = 1d3
 
-    ! print*, 'Hi, I am processor ',rank_world,' of ',size_world
+    do while (error >= errtol)
+        iteration = iteration + 1
+        T_old = T
+        ! update interior points
+        do j = 1, ny_local
+            do i = 1, nx_local
+                T(i,j) = T_old(i,j) + dt * ( &
+               (T_old(i+1,j) - 2.0d0*T_old(i,j) + T_old(i-1,j)) / dx**2 + &
+                (T_old(i,j+1) - 2.0d0*T_old(i,j) + T_old(i,j-1)) / dy**2 )
+            end do
+        end do
+        ! update the halos
+        call update_halos
+        ! local max error
+        local_error = maxval(abs(T - T_old))
+        ! global max error
+        call MPI_Allreduce(local_error, global_error, 1, MPI_DOUBLE_PRECISION, MPI_MAX, comm2d, ierror)
+        error = global_error
+    end do
 
-    root = 0
-
+    ! PRINT THE RESULTS, FINALIZE
     call print_results
+    if(rank_2d.eq.0) print*,'iterations = ',iteration
 
     deallocate(T,T_old)
     call MPI_Finalize(ierror)
@@ -109,6 +138,8 @@ subroutine print_results
 
     real(kind=8), allocatable, dimension(:,:) :: Tglob, buf
     real(kind=8), allocatable, dimension(:) :: buf_bound_x, buf_bound_y
+
+    root = 0
 
     ! Allocate receive buffer for root (global array incl. halos)
     if (rank_world == root) then
@@ -227,3 +258,59 @@ subroutine print_results
     end if
 
 end subroutine print_results
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+subroutine update_halos
+
+    use parameters
+    use common_variables
+
+    real(kind=8), allocatable, dimension(:) :: buf_inbound_x, buf_outbound_x
+    real(kind=8), allocatable, dimension(:) :: buf_inbound_y, buf_outbound_y
+    
+    ! every rank sends its edge and gets an halo in return
+    ! (unless they lie on boundaries of course)
+
+    allocate(buf_inbound_x(ny_local), buf_outbound_x(ny_local))
+    allocate(buf_inbound_y(nx_local), buf_outbound_y(nx_local))
+
+    if(coords(1).ne.0) then ! sends to the west, receives from the west
+        ! call MPI_Cart_rank(comm2d, (/coords(1)-1, coords(2)/), west, ierror) ! who lies in the west?
+        buf_outbound_x = T(1,1:ny_local) ! sends part of its domain x = 1
+        call MPI_sendrecv(buf_outbound_x, ny_local, MPI_DOUBLE_PRECISION, west, 100, &
+                        buf_inbound_x, ny_local, MPI_DOUBLE_PRECISION, west, 101, &
+                        comm2d, status, ierror)
+        T(0,1:ny_local) = buf_inbound_x ! gets a halo in return x = 0
+    end if
+    if(coords(1).ne.(dims(1)-1)) then ! sends to the east, receives from the east
+        ! call MPI_Cart_rank(comm2d, (/coords(1)+1, coords(2)/), east, ierror) ! who lies in the east?
+        buf_outbound_x = T(nx_local,1:ny_local) ! sends part of its domain x = nx_local
+        call MPI_sendrecv(buf_outbound_x, ny_local, MPI_DOUBLE_PRECISION, east, 101, &
+                        buf_inbound_x, ny_local, MPI_DOUBLE_PRECISION, east, 100, &
+                        comm2d, status, ierror)
+        T(nx_local+1,1:ny_local) = buf_inbound_x ! gets a halo in return x = nx_local +1
+    end if
+    if(coords(2).ne.0) then ! sends to the south, receives from the south
+        ! call MPI_Cart_rank(comm2d, (/coords(1), coords(2)-1/), south, ierror) ! who lies in the south?
+        buf_outbound_y = T(1:nx_local,1) ! sends part of its domain y = 1
+        call MPI_sendrecv(buf_outbound_y, nx_local, MPI_DOUBLE_PRECISION, south, 102, &
+                        buf_inbound_y, nx_local, MPI_DOUBLE_PRECISION, south, 103, &
+                        comm2d, status, ierror)
+        T(1:nx_local,0) = buf_inbound_y ! gets a halo in return y = 0
+    end if
+    if(coords(2).ne.(dims(2)-1)) then ! sends to the north, receives from the north
+        ! call MPI_Cart_rank(comm2d, (/coords(1), coords(2)+1/), north, ierror) ! who lies in the north?
+        buf_outbound_y = T(1:nx_local,ny_local) ! sends part of its domain y = ny_local
+        call MPI_sendrecv(buf_outbound_y, nx_local, MPI_DOUBLE_PRECISION, north, 103, &
+                        buf_inbound_y, nx_local, MPI_DOUBLE_PRECISION, north, 102, &
+                        comm2d, status, ierror)
+        T(1:nx_local,ny_local+1) = buf_inbound_y ! gets a halo in return y = ny_local +1
+    end if
+
+    deallocate(buf_inbound_x, buf_outbound_x)
+    deallocate(buf_inbound_y, buf_outbound_y)
+
+end subroutine update_halos

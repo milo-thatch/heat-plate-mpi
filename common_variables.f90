@@ -14,8 +14,8 @@ module common_variables
 
     ! Mathematical formulation
     real(kind=8), allocatable, dimension(:,:) :: T, T_old
-    real(kind=8) :: Lx=1.0d0, Ly=1.0d0
-    real(kind=8) :: dx,dy,dt
+    real(kind=8) :: dx, dy, dt
+    real(kind=8) :: error, local_error, global_error
 
     ! MPI comm2d variables
     integer :: comm2d ! cartesian communicator, opaque handle and therefore an integer in fortran
