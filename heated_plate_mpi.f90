@@ -44,7 +44,7 @@ program heated_plate_mpi
     call MPI_Dims_create(size_world, 2, dims, ierror) ! creates 2D topology
     periods = (/ .false., .false. /)  ! No periodic BCs
     ! creates a 2d communicator --> arranges the processors on a 2d grid
-    call MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, .true., comm2d, ierror) 
+    call MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, .false., comm2d, ierror) 
     ! Use the cartesian communicator from now on
     call MPI_Comm_rank(comm2d, rank_2d, ierror)
     call MPI_Cart_coords(comm2d, rank_2d, 2, coords, ierror)
@@ -65,7 +65,7 @@ program heated_plate_mpi
     ! SET BOUNDARY CONDITIONS
     call set_boundary_conditions(T, T_old, nx_local, ny_local, coords, dims, nx, ny)  
 
-    print*, 'Hi, I am processor ',rank_world,' of ',size_world
+    ! print*, 'Hi, I am processor ',rank_world,' of ',size_world
 
     root = 0
 
@@ -204,16 +204,16 @@ subroutine set_boundary_conditions(T, T_old, nx_local, ny_local, coords, dims, n
     ! Left boundary (x=0)
     if (coords(1) == 0) then
         do j = 0, ny_local+1
-            T(0,j) = -1.0d0
-            T_old(0,j) = -1.0d0
+            T(0,j) = 0.0d0
+            T_old(0,j) = T(0,j)
         end do
     end if
 
     ! Bottom boundary (y=0)
     if (coords(2) == 0) then
         do i = 0, nx_local+1
-            T(i,0) = 1.0d0
-            T_old(i,0) = 1.0d0
+            T(i,0) = 0.0d0
+            T_old(i,0) = T(i,0)
         end do
     end if
 
