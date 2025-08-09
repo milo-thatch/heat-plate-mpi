@@ -1,34 +1,8 @@
 program heated_plate_mpi
 
-    use mpi 
     use parameters
+    use common_variables
     implicit none
-
-    ! MPI_COMM_WORLD variables
-    integer :: ierror, rank_world, size_world
-    integer :: status(MPI_STATUS_SIZE)
-
-    ! MPI_CART variables
-    integer :: rank_2d
-
-    ! counters
-    integer :: i,j,iteration
-
-    ! Mathematical formulation
-    real(kind=8), allocatable, dimension(:,:) :: T, T_old
-    real(kind=8) :: Lx=1.0d0, Ly=1.0d0
-    real(kind=8) :: dx,dy,dt
-
-    ! MPI comm2d variables
-    integer :: comm2d ! cartesian communicator, opaque handle and therefore an integer in fortran
-    integer :: north, south, west, east
-    integer :: dims(2), coords(2), coords_src(2), nx_local, ny_local
-    logical :: periods(2)
-    integer :: root ! identify the master (root processor)
-    integer :: istart, iend, jstart, jend
-    integer :: src ! mpi_send source for final gathering
-    real(kind=8), allocatable, dimension(:,:) :: Tglob, buf
-    real(kind=8), allocatable, dimension(:) :: buf_bound_x, buf_bound_y
 
     !-----------------------------------------------------------------------------------------------------------------
     ! MPI startup (general) ------------------------------------------------------------------------------------------
@@ -68,6 +42,73 @@ program heated_plate_mpi
     ! print*, 'Hi, I am processor ',rank_world,' of ',size_world
 
     root = 0
+
+    call print_results
+
+    deallocate(T,T_old)
+    call MPI_Finalize(ierror)
+
+end program heated_plate_mpi
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+subroutine set_boundary_conditions(T, T_old, nx_local, ny_local, coords, dims, nx, ny)
+
+    implicit none
+    integer, intent(in) :: nx_local, ny_local, nx, ny
+    integer, dimension(2), intent(in) :: coords, dims
+    double precision, dimension(0:nx_local+1, 0:ny_local+1), intent(inout) :: T, T_old
+    integer :: i, j, gi, gj
+
+    ! Left boundary (x=0)
+    if (coords(1) == 0) then
+        do j = 0, ny_local+1
+            T(0,j) = 0.0d0
+            T_old(0,j) = T(0,j)
+        end do
+    end if
+
+    ! Bottom boundary (y=0)
+    if (coords(2) == 0) then
+        do i = 0, nx_local+1
+            T(i,0) = 0.0d0
+            T_old(i,0) = T(i,0)
+        end do
+    end if
+
+    ! Right boundary (x=Lx)
+    if (coords(1) == dims(1)-1) then
+        do j = 0, ny_local+1
+            gj = coords(2)*ny/dims(2) + j
+            T(nx_local+1,j) = dble(gj) / dble(ny)
+            T_old(nx_local+1,j) = T(nx_local+1,j)
+        end do
+    end if
+
+    ! Top boundary (y=Ly)
+    if (coords(2) == dims(2)-1) then
+        do i = 0, nx_local+1
+            gi = coords(1)*nx/dims(1) + i
+            T(i,ny_local+1) = dble(gi) / dble(nx)
+            T_old(i,ny_local+1) = T(i,ny_local+1)
+        end do
+    end if
+
+end subroutine set_boundary_conditions
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------
+subroutine print_results
+
+    use parameters
+    use common_variables
+
+    real(kind=8), allocatable, dimension(:,:) :: Tglob, buf
+    real(kind=8), allocatable, dimension(:) :: buf_bound_x, buf_bound_y
 
     ! Allocate receive buffer for root (global array incl. halos)
     if (rank_world == root) then
@@ -185,53 +226,4 @@ program heated_plate_mpi
         deallocate(Tglob)
     end if
 
-    deallocate(T,T_old)
-    call MPI_Finalize(ierror)
-
-end program heated_plate_mpi
-!----------------------------------------------------------------------------------------------------
-!----------------------------------------------------------------------------------------------------
-!----------------------------------------------------------------------------------------------------
-!----------------------------------------------------------------------------------------------------
-!----------------------------------------------------------------------------------------------------
-subroutine set_boundary_conditions(T, T_old, nx_local, ny_local, coords, dims, nx, ny)
-    implicit none
-    integer, intent(in) :: nx_local, ny_local, nx, ny
-    integer, dimension(2), intent(in) :: coords, dims
-    double precision, dimension(0:nx_local+1, 0:ny_local+1), intent(inout) :: T, T_old
-    integer :: i, j, gi, gj
-
-    ! Left boundary (x=0)
-    if (coords(1) == 0) then
-        do j = 0, ny_local+1
-            T(0,j) = 0.0d0
-            T_old(0,j) = T(0,j)
-        end do
-    end if
-
-    ! Bottom boundary (y=0)
-    if (coords(2) == 0) then
-        do i = 0, nx_local+1
-            T(i,0) = 0.0d0
-            T_old(i,0) = T(i,0)
-        end do
-    end if
-
-    ! Right boundary (x=Lx)
-    if (coords(1) == dims(1)-1) then
-        do j = 0, ny_local+1
-            gj = coords(2)*ny/dims(2) + j
-            T(nx_local+1,j) = dble(gj) / dble(ny)
-            T_old(nx_local+1,j) = T(nx_local+1,j)
-        end do
-    end if
-
-    ! Top boundary (y=Ly)
-    if (coords(2) == dims(2)-1) then
-        do i = 0, nx_local+1
-            gi = coords(1)*nx/dims(1) + i
-            T(i,ny_local+1) = dble(gi) / dble(nx)
-            T_old(i,ny_local+1) = T(i,ny_local+1)
-        end do
-    end if
-end subroutine set_boundary_conditions
+end subroutine print_results

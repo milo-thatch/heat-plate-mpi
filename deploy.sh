@@ -3,6 +3,7 @@ echo "purge garbage"
 rm -f *.dat *.o *.x *.mod
 
 echo "generate objects and executables"
+make common_variables.o
 make parameters.o
 make heated_plate_mpi.o
 make heated_plate_mpi.x
