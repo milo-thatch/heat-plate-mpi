@@ -11,12 +11,11 @@ module heated_plate_mpi_subroutines
     integer :: rank_2d
 
     ! counters
-    integer :: i,j,iteration
+    integer :: i,j,iter
 
     ! Mathematical formulation
     real(kind=8), allocatable, dimension(:,:) :: T, T_old
     real(kind=8) :: dx, dy, dt
-    real(kind=8) :: error, local_error, global_error
 
     ! MPI comm2d variables
     integer :: comm2d ! cartesian communicator, opaque handle and therefore an integer in fortran
@@ -134,7 +133,7 @@ subroutine print_results
                         src, 105, comm2d, status, ierror)
             end if
             if((coords(1).eq.0).and.(coords(2).eq.0)) then ! SOUTHWEST
-                call MPI_Recv(Tglob(istart-1:iend,ny+1), nx_local+1,MPI_DOUBLE_PRECISION, &
+                call MPI_Recv(Tglob(istart-1:iend,0), nx_local+1,MPI_DOUBLE_PRECISION, &
                         src, 106, comm2d, status, ierror)
                 call MPI_Recv(Tglob(0,jstart-1:jend), ny_local+1,MPI_DOUBLE_PRECISION, &
                         src, 107, comm2d, status, ierror)
@@ -144,6 +143,24 @@ subroutine print_results
                         src, 108, comm2d, status, ierror)
                 call MPI_Recv(Tglob(nx+1,jstart-1:jend), ny_local+1, MPI_DOUBLE_PRECISION, &
                         src, 109, comm2d, status, ierror)
+            end if
+            ! check boundaries: edges (no corners)
+            if((coords(1).ne.0).and.(coords(1).ne.(dims(2)-1)).and.(coords(2).eq.(dims(2)-1))) then ! NORTH
+                call MPI_Recv(Tglob(istart:iend,ny+1), nx_local, MPI_DOUBLE_PRECISION, &
+                        src, 110, comm2d, status, ierror)
+            end if
+            if((coords(1).ne.0).and.(coords(1).ne.(dims(2)-1)).and.(coords(2).eq.0)) then ! SOUTH
+                call MPI_Recv(Tglob(istart:iend,ny+1), nx_local, MPI_DOUBLE_PRECISION, &
+                        src, 111, comm2d, status, ierror)
+            end if
+            if((coords(2).ne.0).and.(coords(2).ne.(dims(2)-1)).and.(coords(1).eq.0)) then ! WEST
+                buf_bound_y = T(0, 1:ny_local)
+                call MPI_Recv(Tglob(0,jstart:jend), ny_local, MPI_DOUBLE_PRECISION, &
+                        src, 112, comm2d, status, ierror)
+            end if
+            if((coords(2).ne.0).and.(coords(2).ne.(dims(2)-1)).and.(coords(1).eq.(dims(1)-1))) then ! EAST
+                call MPI_Recv(Tglob(nx+1,jstart:jend), ny_local, MPI_DOUBLE_PRECISION, &
+                        src, 113, comm2d, status, ierror)
             end if
         end do
     else

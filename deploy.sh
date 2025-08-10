@@ -9,4 +9,4 @@ make heated_plate_mpi.o
 make heated_plate_mpi.x
 
 echo "running"
-mpirun -np 4 ./heated_plate_mpi.x
+mpirun -np 36 ./heated_plate_mpi.x

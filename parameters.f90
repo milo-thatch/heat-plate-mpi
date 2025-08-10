@@ -1,7 +1,6 @@
 module parameters
 
     real(kind=8), parameter :: Lx = 1.0d0, Ly = 1.0d0
-    integer, parameter :: nx=400, ny=400
-    real(kind=8) :: errtol=1.0e-4
+    integer, parameter :: nx=300, ny=300, iterations = 50000
 
 end module parameters
