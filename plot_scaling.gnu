@@ -1,0 +1,1 @@
+plot 'scaling.out' using 1:( ($0==0 ? y0=$2 : y0) , y0/$2 ) with linespoints lw 2, x title 'y = x' w l lw 2
