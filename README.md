@@ -1,4 +1,4 @@
-# Solve the 2D heat equation using MPI!
+# Solve the 2D heat equation with MPI!
 This Fortran program solve the 2D homogeneous heat equation 
 
 $$ \left(\partial_t + \partial_{xx} + \partial_{yy}\right) T = 0 $$
