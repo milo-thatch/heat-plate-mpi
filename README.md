@@ -1,7 +1,7 @@
 # Solve the 2D heat equation with MPI!
 This Fortran program solve the 2D homogeneous heat equation 
 
-$$ \left(\partial_t + \partial_{xx} + \partial_{yy}\right) T = 0 $$
+$$ \left(\partial_t - \partial_{xx} + \partial_{yy}\right) T = 0 $$
 
 with Dirichlet boundary conditions on a cartesian grid. It uses a cartesian parallelization to speed up the computation.
 
